@@ -1,0 +1,41 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache Files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables / API Keys
+.env
+.env.*
+!.env.example
+
+# Vector Database (Generated Files)
+vector_db/
+
+# User Documents
+documents/*
+!documents/.gitkeep
+
+# Logs
+*.log
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE Settings
+.vscode/
+.idea/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.bak
