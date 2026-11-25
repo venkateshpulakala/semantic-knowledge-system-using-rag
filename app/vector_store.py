@@ -22,13 +22,15 @@ EMBEDDING_DIMENSION = 384
 def create_vector_store(embeddings, chunks):
 
     embeddings = np.asarray(embeddings, dtype = np.float32)
-    faiss.normalize_L2(embeddings)
+    
 
     if embeddings.ndim != 2:
         raise ValueError("Embeddings must be a 2D array")
 
     if embeddings.shape[1] != EMBEDDING_DIMENSION:
         raise ValueError("Invalid embedding dimensions")
+
+    faiss.normalize_L2(embeddings)
 
     if len(embeddings) != len(chunks):
         raise ValueError("No embeddings provided")
@@ -75,12 +77,14 @@ def load_vector_store():
     return index, chunks
 
 # Add new documents to existing vector database
+
+# Add new documents to existing vector database
 def add_to_vector_store(embeddings, new_chunks):
 
-    embeddings = np.asarray(embeddings, dtype = np.float32)
+    embeddings = np.asarray(embeddings, dtype=np.float32)
 
     if embeddings.ndim != 2:
-        raise ValueError("Embeddings must be a 2d array")
+        raise ValueError("Embeddings must be a 2D array")
 
     if embeddings.shape[1] != EMBEDDING_DIMENSION:
         raise ValueError("Invalid embedding dimensions")
@@ -91,11 +95,16 @@ def add_to_vector_store(embeddings, new_chunks):
     if len(embeddings) == 0:
         return
 
+    # Normalize embeddings
+    faiss.normalize_L2(embeddings)
+
     # Load existing database if available
     if os.path.exists(INDEX_PATH) and os.path.exists(METADATA_PATH):
 
         index, chunks = load_vector_store()
+
     else:
+
         index = faiss.IndexFlatIP(EMBEDDING_DIMENSION)
 
         chunks = []
@@ -103,10 +112,10 @@ def add_to_vector_store(embeddings, new_chunks):
     # Add new embeddings
     index.add(embeddings)
 
-    # Add correspoding chunk metadata
+    # Add corresponding chunk metadata
     chunks.extend(new_chunks)
 
-    # Save and update database
+    # Save updated database
     save_vector_store(index, chunks)
 
     return index

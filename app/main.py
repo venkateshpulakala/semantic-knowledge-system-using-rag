@@ -1,17 +1,44 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import traceback
+
+from collections import defaultdict
 
 import os
 import shutil
+import traceback
+import pickle
 
 from app.ingestion import extract_text
 from app.chunking import create_chunks
 from app.embeddings import generate_embeddings
-from app.vector_store import create_vector_store
+from app.vector_store import add_to_vector_store
 from app.retrieval import retrieve_documents
 from app.generation import generate_answer
 
+
+# ============================================
+# 1. PROJECT DIRECTORIES
+# ============================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
+
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+
+UPLOAD_DIR = os.path.join(BASE_DIR, "documents")
+
+VECTOR_DB_DIR = os.path.join(BASE_DIR, "vector_db")
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(VECTOR_DB_DIR, exist_ok=True)
+
+
+# ============================================
+# 2. FASTAPI APPLICATION
+# ============================================
 
 app = FastAPI(
     title="Semantic Knowledge System using RAG",
@@ -20,46 +47,77 @@ app = FastAPI(
 )
 
 
-UPLOAD_DIR = "documents"
+# Serve frontend files
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount(
+    "/css",
+    StaticFiles(directory=os.path.join(FRONTEND_DIR, "css")),
+    name="css"
+)
+
+app.mount(
+    "/js",
+    StaticFiles(directory=os.path.join(FRONTEND_DIR, "js")),
+    name="js"
+)
 
 
-# Request model
+# ============================================
+# 3. REQUEST MODEL
+# ============================================
+
 class QuestionRequest(BaseModel):
+
     question: str
 
 
-# Home endpoint
+# ============================================
+# 4. HOME PAGE
+# ============================================
+
 @app.get("/")
 def home():
 
-    return {
-        "message": "Welcome to Semantic Knowledge System using RAG",
-        "status": "Running"
-    }
+    return FileResponse(
+        os.path.join(FRONTEND_DIR, "index.html")
+    )
 
 
-# Document upload endpoint
+# ============================================
+# 5. UPLOAD DOCUMENT
+# ============================================
+
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
 
     if not file.filename.lower().endswith(".pdf"):
+
         raise HTTPException(
             status_code=400,
             detail="Only PDF files are supported."
         )
 
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    file_path = os.path.join(
+        UPLOAD_DIR,
+        file.filename
+    )
 
     try:
 
-        # Save uploaded PDF
+        # Save PDF
         with open(file_path, "wb") as buffer:
+
             shutil.copyfileobj(file.file, buffer)
 
         # Extract text
         extracted_pages = extract_text(file_path)
+
+        if not extracted_pages:
+
+            raise HTTPException(
+                status_code=400,
+                detail="No readable text found in PDF."
+            )
 
         # Create chunks
         chunks = create_chunks(
@@ -68,16 +126,20 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
         if not chunks:
+
             raise HTTPException(
                 status_code=400,
-                detail="No readable text found in PDF."
+                detail="No text chunks generated."
             )
 
         # Generate embeddings
         embeddings = generate_embeddings(chunks)
 
-        # Store vectors and metadata
-        create_vector_store(embeddings, chunks)
+        # Add to existing vector database
+        add_to_vector_store(
+            embeddings,
+            chunks
+        )
 
         return {
             "message": "Document uploaded successfully",
@@ -99,16 +161,115 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
     finally:
+
         await file.close()
 
 
-# Question answering endpoint
+# ============================================
+# 6. GET ALL DOCUMENTS
+# ============================================
+
+@app.get("/documents")
+def get_documents():
+
+    try:
+
+        documents = []
+
+        document_data = defaultdict(
+            lambda: {
+                "pages": set(),
+                "total_chunks": 0
+            }
+        )
+
+        metadata_path = os.path.join(
+            VECTOR_DB_DIR,
+            "chunks.pkl"
+        )
+
+        # Read vector database metadata
+        if os.path.exists(metadata_path):
+
+            with open(metadata_path, "rb") as file:
+
+                chunks = pickle.load(file)
+
+            for chunk in chunks:
+
+                metadata = chunk["metadata"]
+
+                filename = metadata["source"]
+
+                page = metadata["page"]
+
+                document_data[filename]["pages"].add(page)
+
+                document_data[filename]["total_chunks"] += 1
+
+        # Read uploaded PDF files
+        for filename in os.listdir(UPLOAD_DIR):
+
+            file_path = os.path.join(
+                UPLOAD_DIR,
+                filename
+            )
+
+            if (
+                os.path.isfile(file_path)
+                and filename.lower().endswith(".pdf")
+            ):
+
+                info = document_data.get(
+                    filename,
+                    {
+                        "pages": set(),
+                        "total_chunks": 0
+                    }
+                )
+
+                documents.append({
+
+                    "filename": filename,
+
+                    "total_pages": len(info["pages"]),
+
+                    "total_chunks": info["total_chunks"]
+
+                })
+
+        return {
+            "total_documents": len(documents),
+            "documents": documents
+        }
+
+    except Exception as e:
+
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+# ============================================
+# 7. ASK QUESTION
+# ============================================
+
 @app.post("/ask")
 def ask_question(request: QuestionRequest):
 
     try:
 
-        # Retrieve relevant documents
+        if not request.question.strip():
+
+            raise HTTPException(
+                status_code=400,
+                detail="Question cannot be empty."
+            )
+
+        # Retrieve relevant chunks
         retrieved_docs = retrieve_documents(
             request.question,
             top_k=5,
@@ -116,6 +277,7 @@ def ask_question(request: QuestionRequest):
         )
 
         if not retrieved_docs:
+
             return {
                 "question": request.question,
                 "answer": "I couldn't find relevant information in your documents.",
@@ -128,15 +290,27 @@ def ask_question(request: QuestionRequest):
             retrieved_docs
         )
 
-        # Extract source information
+        # Extract unique sources
         sources = []
+
+        seen_sources = set()
 
         for doc in retrieved_docs:
 
-            sources.append({
-                "source": doc["metadata"]["source"],
-                "page": doc["metadata"]["page"]
-            })
+            source = doc["metadata"]["source"]
+
+            page = doc["metadata"]["page"]
+
+            source_key = (source, page)
+
+            if source_key not in seen_sources:
+
+                sources.append({
+                    "document": source,
+                    "page": page
+                })
+
+                seen_sources.add(source_key)
 
         return {
             "question": request.question,
@@ -144,7 +318,12 @@ def ask_question(request: QuestionRequest):
             "sources": sources
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
+
+        traceback.print_exc()
 
         raise HTTPException(
             status_code=500,

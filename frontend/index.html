@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Semantic Knowledge System</title>
+
+    <link rel="stylesheet" href="/css/style.css?v=2">
+    <script src="/js/script.js?v=2" defer></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+            <div class="logo">
+                <h2>SKS<span>.</span></h2>
+                <p>Knowledge Assistant</p>
+            </div>
+
+            <button class="new-chat-btn" id="newChatBtn">
+                <span>＋</span> New Chat
+            </button>
+
+            <div class="sidebar-menu">
+
+                <p class="menu-heading">MENU</p>
+
+                <button class="menu-item active" id="chatMenu">
+                    <span>💬</span> Chat
+                </button>
+
+                <button class="menu-item" id="documentsMenu">
+                    <span>📁</span> My Documents
+                </button>
+
+            </div>
+
+            <!-- Documents -->
+            <div class="documents-section">
+
+                <p class="menu-heading">YOUR DOCUMENTS</p>
+
+                <div id="documentList" class="document-list">
+
+                    <p class="empty-documents">
+                        No documents uploaded yet.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="sidebar-bottom">
+
+                <div class="user-profile">
+
+                    <div class="profile-avatar">U</div>
+
+                    <div class="profile-info">
+                        <h4>User</h4>
+                        <p>Personal Workspace</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <header class="top-header">
+
+                <div class="header-left">
+                    <h3>Semantic Knowledge System</h3>
+                </div>
+
+                <div class="header-right">
+                    <span class="status-dot"></span>
+                    <span>System Online</span>
+                </div>
+
+            </header>
+
+            <!-- Chat -->
+            <section class="chat-container" id="chatContainer">
+
+                <div class="welcome-screen" id="welcomeScreen">
+
+                    <div class="welcome-icon">✨</div>
+
+                    <h1>Welcome to your Knowledge Assistant</h1>
+
+                    <p>
+                        Upload your documents and ask questions.
+                        I'll find answers from your documents.
+                    </p>
+
+                    <div class="suggestions">
+
+                        <button class="suggestion-card">
+                            📚 Summarize my documents
+                        </button>
+
+                        <button class="suggestion-card">
+                            🔍 Find important information
+                        </button>
+
+                        <button class="suggestion-card">
+                            💡 Explain a concept
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="messages" id="messages"></div>
+
+            </section>
+
+            <!-- Input -->
+            <footer class="input-section">
+
+                <div class="upload-preview" id="uploadPreview">
+                    <span id="selectedFileName"></span>
+                </div>
+
+                <div class="input-box">
+
+                    <label for="fileInput" class="upload-btn">
+                        ＋
+                    </label>
+
+                    <input
+                        type="file"
+                        id="fileInput"
+                        accept=".pdf"
+                        hidden
+                    >
+
+                    <textarea
+                        id="questionInput"
+                        placeholder="Ask anything about your documents..."
+                        rows="1"
+                    ></textarea>
+
+                    <button class="send-btn" id="sendBtn">
+                        ↑
+                    </button>
+
+                </div>
+
+                <p class="input-footer">
+                    AI-generated answers are based on your uploaded documents.
+                </p>
+
+            </footer>
+
+        </main>
+
+    </div>
+
+</body>
+</html>
