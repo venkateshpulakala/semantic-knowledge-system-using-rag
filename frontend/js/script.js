@@ -228,73 +228,115 @@ async function sendQuestion() {
 // 7. LOAD DOCUMENTS FROM BACKEND
 // ============================================
 
+// ============================================
+// LOAD DOCUMENTS FROM BACKEND
+// ============================================
+
 async function loadDocuments() {
-
     try {
-
         console.log("Loading documents...");
 
         const response = await fetch("/documents");
 
         if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
+            throw new Error("Failed to load documents");
         }
 
         const result = await response.json();
 
         console.log("Documents API response:", result);
 
-        if (!Array.isArray(result.documents)) {
-            throw new Error("Invalid documents response.");
-        }
-
         documentList.innerHTML = "";
 
-        if (result.documents.length === 0) {
-
-            documentList.innerHTML = `
-                <p class="empty-documents">
-                    No documents uploaded yet.
-                </p>
-            `;
-
+        if (!result.documents || result.documents.length === 0) {
+            documentList.innerHTML =
+                `<p class="empty-documents">No documents uploaded yet.</p>`;
             return;
         }
 
         result.documents.forEach(doc => {
 
             const documentItem = document.createElement("div");
-
             documentItem.className = "document-item";
 
-            documentItem.dataset.filename = doc.filename;
+            // PDF filename
+            const filename = document.createElement("span");
+            filename.className = "document-filename";
+            filename.textContent = "📄 " + doc.filename;
 
-            documentItem.textContent = `📄 ${doc.filename}`;
+            // Delete button
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "delete-document-btn";
+            deleteButton.textContent = "🗑";
+            deleteButton.title = "Delete document";
+            deleteButton.type = "button";
 
-            documentItem.title =
-                `${doc.filename}\n` +
-                `Pages: ${doc.total_pages}\n` +
-                `Chunks: ${doc.total_chunks}`;
+            deleteButton.addEventListener("click", async () => {
+
+                const confirmDelete = confirm(
+                    `Are you sure you want to delete ${doc.filename}?`
+                );
+
+                if (!confirmDelete) return;
+
+                await deleteDocument(doc.filename);
+            });
+
+            documentItem.appendChild(filename);
+            documentItem.appendChild(deleteButton);
 
             documentList.appendChild(documentItem);
-
         });
 
         console.log("Documents displayed successfully.");
+
+    } catch (error) {
+        console.error("Document loading error:", error);
+
+        documentList.innerHTML =
+            `<p class="empty-documents">Unable to load documents.</p>`;
+    }
+}
+
+
+// ============================================
+// DELETE DOCUMENT
+// ============================================
+
+async function deleteDocument(filename) {
+
+    try {
+
+        const response = await fetch(
+            `/documents/${encodeURIComponent(filename)}`,
+            {
+                method: "DELETE"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Document deletion failed");
+        }
+
+        alert("Document deleted successfully!");
+
+        // Refresh document list
+        await loadDocuments();
 
     }
 
     catch (error) {
 
-        console.error("Document loading error:", error);
+        console.error("Delete error:", error);
 
-        documentList.innerHTML = `
-            <p class="empty-documents">
-                Unable to load documents.
-            </p>
-        `;
+        alert("Error deleting document: " + error.message);
+
+        await loadDocuments();
 
     }
+
 }
 
 

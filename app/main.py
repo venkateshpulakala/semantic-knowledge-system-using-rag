@@ -13,7 +13,10 @@ import pickle
 from app.ingestion import extract_text
 from app.chunking import create_chunks
 from app.embeddings import generate_embeddings
-from app.vector_store import add_to_vector_store
+from app.vector_store import (
+    add_to_vector_store,
+    delete_document_from_vector_store
+)
 from app.retrieval import retrieve_documents
 from app.generation import generate_answer
 
@@ -253,6 +256,51 @@ def get_documents():
         )
 
 
+@app.delete("/documents/{filename}")
+def delete_document(filename: str):
+
+    try:
+        # Validate filename
+        if filename != os.path.basename(filename) or filename in ("", ".", ".."):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid filename"
+            )
+
+        # Get PDF path
+        file_path = os.path.join(UPLOAD_DIR, filename)
+
+        # Check whether document exists
+        if not os.path.isfile(file_path) or not filename.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found"
+            )
+
+        # Delete chunks and embeddings from FAISS
+        deleted_chunks = delete_document_from_vector_store(filename)
+
+        # Delete original PDF
+        os.remove(file_path)
+
+        return {
+            "message": "Document deleted successfully",
+            "filename": filename,
+            "deleted_chunks": deleted_chunks
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
 # ============================================
 # 7. ASK QUESTION
 # ============================================
@@ -329,3 +377,4 @@ def ask_question(request: QuestionRequest):
             status_code=500,
             detail=str(e)
         )
+
